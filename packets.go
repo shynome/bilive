@@ -54,3 +54,5 @@ func DecodeBody(body []byte) []Packet {
 	}
 	return arr
 }
+
+func ref[T any](t T) *T { return &t }

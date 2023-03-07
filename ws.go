@@ -33,7 +33,8 @@ func (c *Client) Connect() (err error) {
 		pkt := NewConnectPacket(c.RoomID)
 		c.WritePacket(pkt)
 	}()
-	pkt := try.To1(c.ReadPacket())
+	pkts := try.To1(c.ReadPackets())
+	pkt := pkts[0]
 	if pkt.Operation != OpreationConnectSuccess {
 		return fmt.Errorf("first packet op must be %d, but got %d", OpreationConnectSuccess, pkt.Operation)
 	}
@@ -42,11 +43,11 @@ func (c *Client) Connect() (err error) {
 }
 
 // Decode 是解码操作会耗时, 追求性能的话移动到协程里
-func (c *Client) ReadPacket() (pkt Packet, err error) {
+func (c *Client) ReadPackets() (pkts []*Packet, err error) {
 	defer err2.Handle(&err)
 	ctx := context.Background()
 	_, e := try.To2(c.Conn.Read(ctx))
-	pkt = try.To1(Decode(e))
+	pkts = try.To1(DecodePackets(e))
 	return
 }
 

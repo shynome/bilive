@@ -2,7 +2,6 @@ package ws
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/lainio/err2/try"
 )
@@ -11,7 +10,7 @@ func NewJSONPacket(body []byte) (pkt Packet) {
 	pkt = Packet{
 		PacketLength:    16 + uint32(len(body)),
 		HeaderLength:    16,
-		ProtocolVersion: ProtocolJSON,
+		ProtocolVersion: ProtocolNormalBuffer,
 		Operation:       OpreationUserAuthentication,
 		SequenceID:      1,
 		Body:            body,
@@ -23,7 +22,7 @@ func NewPingPacket() Packet {
 	return Packet{
 		PacketLength:    16,
 		HeaderLength:    16,
-		ProtocolVersion: ProtocolJSON,
+		ProtocolVersion: ProtocolNormalBuffer,
 		Operation:       OpreationHeartbeat,
 		SequenceID:      1,
 	}
@@ -40,19 +39,6 @@ func NewConnectPacket(roomid int) Packet {
 	}
 	body := try.To1(json.Marshal(er))
 	return NewJSONPacket(body)
-}
-
-func DecodeBody(body []byte) []Packet {
-	arr := make([]Packet, 0)
-	for {
-		h := body[:16]
-		if len(h) < 16 {
-			break
-		}
-		pkt := try.To1(Decode(h))
-		fmt.Printf("pkts %+v\n", pkt)
-	}
-	return arr
 }
 
 func ref[T any](t T) *T { return &t }

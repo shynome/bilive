@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/binary"
+	"fmt"
 	"io"
+	"sync"
 
 	"github.com/google/brotli/go/cbrotli"
 	"github.com/lainio/err2"
@@ -39,36 +41,84 @@ func (pkt *Packet) Bytes() (h []byte) {
 	return h
 }
 
-func Decode(h []byte) (pkt Packet, err error) {
-	defer err2.Handle(&err)
+func DecodeHeader(h []byte) (pkt *Packet) {
 	var u32 = binary.BigEndian.Uint32
 	var u16 = binary.BigEndian.Uint16
-	pkt = Packet{
+	pkt = &Packet{
 		PacketLength:    u32(h[0:4]),
 		HeaderLength:    u16(h[4:6]),
 		ProtocolVersion: ProtocolVersion(u16(h[6:8])),
 		Operation:       OpreationType(u32(h[8:12])),
 		SequenceID:      u32(h[12:16]),
-		Body:            h[16:],
+		Body:            h,
 	}
+	return pkt
+}
+
+func (pkt *Packet) Decode() (npkt *Packet, err error) {
 	switch pkt.ProtocolVersion {
+	case ProtocolNormalBuffer:
+		pkt.Body = pkt.Body[pkt.HeaderLength:pkt.PacketLength]
+		npkt = pkt
 	case ProtocolInflateBuffer:
-		r := bytes.NewBuffer(pkt.Body)
+		r := bytes.NewBuffer(pkt.Body[pkt.HeaderLength:])
 		zr := try.To1(zlib.NewReader(r))
 		defer zr.Close()
 		body := try.To1(io.ReadAll(zr))
-		return Decode(body)
+		npkt = DecodeHeader(body)
+		return
 	case ProtocolBrotliBuffer:
-		body := try.To1(cbrotli.Decode(pkt.Body))
-		return Decode(body)
+		body := try.To1(cbrotli.Decode(pkt.Body[pkt.HeaderLength:]))
+		npkt = DecodeHeader(body)
+		return
+	default:
+		err = fmt.Errorf("unkonw protover %d", pkt.ProtocolVersion)
 	}
+	return
+}
+
+func DecodePackets(body []byte) (pkts []*Packet, err error) {
+	defer err2.Handle(&err)
+	var wg sync.WaitGroup
+	for {
+		next := func() (next bool) {
+			pkt := DecodeHeader(body[:16])
+			pkt.Body = body[:pkt.PacketLength]
+			defer func() {
+				if len(body) > int(pkt.PacketLength) {
+					body = body[pkt.PacketLength:]
+					next = true
+				}
+			}()
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				switch pkt.ProtocolVersion {
+				default:
+					pkt = try.To1(pkt.Decode())
+					pkts = append(pkts, pkt)
+				case ProtocolBrotliBuffer:
+					fallthrough
+				case ProtocolInflateBuffer:
+					pkt = try.To1(pkt.Decode())
+					npkts := try.To1(DecodePackets(pkt.Body))
+					pkts = append(pkts, npkts...)
+				}
+			}()
+			return
+		}()
+		if !next {
+			break
+		}
+	}
+	wg.Wait()
 	return
 }
 
 type ProtocolVersion uint16
 
 const (
-	ProtocolJSON           ProtocolVersion = 0 // JSON纯文本，可以直接通过 JSON.stringify 解析
+	ProtocolNormalBuffer   ProtocolVersion = 0 // 未压缩的buffer
 	ProtocolInt32BigEndian ProtocolVersion = 1 // Body 内容为房间人气值
 	ProtocolInflateBuffer  ProtocolVersion = 2 // 压缩过的 Buffer，Body 内容需要用zlib.inflate解压出一个新的数据包，然后从数据包格式那一步重新操作一遍
 	ProtocolBrotliBuffer   ProtocolVersion = 3 // 压缩信息,需要brotli解压,然后从数据包格式 那一步重新操作一遍

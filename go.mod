@@ -1,4 +1,4 @@
-module github.com/shynome/bilibili-live-ws
+module github.com/shynome/bilive
 
 go 1.20
 

@@ -1,4 +1,4 @@
-package ws
+package bilive
 
 type Message struct {
 	CMD CMD `json:"cmd"`

@@ -1,4 +1,4 @@
-package ws
+package bilive
 
 import (
 	"testing"

@@ -77,5 +77,8 @@ func (c *Client) Close() (err error) {
 	if c.closeKeepAlive != nil {
 		c.closeKeepAlive()
 	}
+	if c.Conn != nil {
+		c.Conn.Close(websocket.StatusAbnormalClosure, "")
+	}
 	return
 }

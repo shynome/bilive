@@ -9,6 +9,11 @@ require (
 )
 
 require (
-	github.com/klauspost/compress v1.10.3 // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/klauspost/compress v1.15.0 // indirect
 	golang.org/x/exp v0.0.0-20230105202349-8879d0199aa3 // indirect
+	golang.org/x/sys v0.6.0 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
+	gopkg.in/yaml.v2 v2.3.0 // indirect
 )
